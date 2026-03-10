@@ -38,7 +38,36 @@ db.exec(`
     price REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
+
+async function updateExchangeRate() {
+  try {
+    const response = await fetch('https://open.er-api.com/v6/latest/SGD');
+    const data = await response.json();
+    if (data && data.rates && data.rates.USD) {
+      const rate = data.rates.USD;
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('usd_rate', rate.toString());
+      console.log(`Updated exchange rate: 1 SGD = ${rate} USD`);
+    }
+  } catch (error) {
+    console.error('Failed to update exchange rate:', error);
+  }
+}
+
+// Initial update
+updateExchangeRate();
+
+// Update every day at 12am
+import cron from 'node-cron';
+cron.schedule('0 0 * * *', () => {
+  console.log('Running daily exchange rate update...');
+  updateExchangeRate();
+});
 
 try {
   db.exec('ALTER TABLE furniture ADD COLUMN price REAL DEFAULT 0');
@@ -180,6 +209,11 @@ async function startServer() {
     const stmt = db.prepare('DELETE FROM furniture WHERE id = ?');
     stmt.run(req.params.id);
     res.json({ success: true });
+  });
+
+  app.get('/api/exchange-rate', (req, res) => {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('usd_rate') as { value: string } | undefined;
+    res.json({ rate: row ? parseFloat(row.value) : 0.74 });
   });
 
   if (process.env.NODE_ENV !== 'production') {

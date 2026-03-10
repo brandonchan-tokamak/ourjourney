@@ -7,6 +7,7 @@ export default function Contributions() {
   const [newItem, setNewItem] = useState({ person: 'Soso', amount: 0, month: new Date().toISOString().slice(0, 7), notes: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ person: '', amount: 0, month: '', notes: '' });
+  const [usdRate, setUsdRate] = useState(0.74);
 
   const fetchContributions = () => {
     fetch('/api/contributions')
@@ -14,20 +15,45 @@ export default function Contributions() {
       .then(data => setItems(data));
   };
 
+  const fetchExchangeRate = () => {
+    fetch('/api/exchange-rate')
+      .then(res => res.json())
+      .then(data => {
+        if (data.rate) setUsdRate(data.rate);
+      })
+      .catch(err => console.error('Error fetching exchange rate:', err));
+  };
+
   useEffect(() => {
     fetchContributions();
+    fetchExchangeRate();
   }, []);
 
   const handleAdd = async () => {
-    if (!newItem.person || !newItem.amount) return;
-    await fetch('/api/contributions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newItem)
-    });
-    setIsAdding(false);
-    setNewItem({ person: 'Soso', amount: 0, month: new Date().toISOString().slice(0, 7), notes: '' });
-    fetchContributions();
+    if (!newItem.person) {
+      alert('Please select a person');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/contributions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newItem)
+      });
+      
+      if (response.ok) {
+        setIsAdding(false);
+        setNewItem({ person: 'Soso', amount: 0, month: new Date().toISOString().slice(0, 7), notes: '' });
+        fetchContributions();
+      } else {
+        const errData = await response.json();
+        alert(`Failed to save: ${errData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error adding contribution:', error);
+      alert('Network error while saving contribution');
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -74,7 +100,8 @@ export default function Contributions() {
         </div>
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-slate-500 text-lg font-medium">Total Saved (USD)</h3>
-          <p className="text-6xl font-display font-bold text-indigo-600 mt-2">US${(totalContributions * 0.74).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+          <p className="text-6xl font-display font-bold text-indigo-600 mt-2">US${(totalContributions * usdRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+          <p className="text-xs text-slate-400 mt-2">Rate: 1 SGD = {usdRate.toFixed(4)} USD</p>
         </div>
       </div>
 
