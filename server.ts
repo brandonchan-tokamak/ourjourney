@@ -51,6 +51,45 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR);
 }
 
+const count = db.prepare('SELECT COUNT(*) as count FROM contributions').get() as { count: number };
+if (count.count === 0) {
+  const stmt = db.prepare('INSERT INTO contributions (person, amount, month, notes) VALUES (?, ?, ?, ?)');
+  const data = [
+    { month: '2024-03', amount: 1000 },
+    { month: '2024-04', amount: 1000 },
+    { month: '2024-05', amount: 1000 },
+    { month: '2024-06', amount: 1000 },
+    { month: '2024-07', amount: 1000 },
+    { month: '2024-08', amount: 1000 },
+    { month: '2024-09', amount: 1000 },
+    { month: '2024-10', amount: 1000 },
+    { month: '2024-11', amount: 1000 },
+    { month: '2024-12', amount: 1000 },
+    { month: '2025-01', amount: 1000 },
+    { month: '2025-02', amount: 1000 },
+    { month: '2025-03', amount: 1000 },
+    { month: '2025-04', amount: 1000 },
+    { month: '2025-05', amount: 1000 },
+    { month: '2025-06', amount: 1000 },
+    { month: '2025-07', amount: 500 },
+    { month: '2025-08', amount: 0 },
+    { month: '2025-09', amount: 1500 },
+    { month: '2025-10', amount: 1000 },
+    { month: '2025-11', amount: 1000 },
+    { month: '2025-12', amount: 1000 },
+    { month: '2026-01', amount: 1000 },
+    { month: '2026-02', amount: 1000 },
+  ];
+  
+  const insertMany = db.transaction((items) => {
+    for (const item of items) {
+      stmt.run('Soso & Jojo', item.amount, item.month, 'Deposit');
+    }
+  });
+  
+  insertMany(data);
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;

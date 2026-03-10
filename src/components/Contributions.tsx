@@ -67,10 +67,14 @@ export default function Contributions() {
         </button>
       </div>
 
-      <div className="mb-8">
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-slate-500 text-lg font-medium">Total Saved</h3>
-          <p className="text-6xl font-display font-bold text-blue-600 mt-2">${totalContributions.toLocaleString()}</p>
+          <h3 className="text-slate-500 text-lg font-medium">Total Saved (SGD)</h3>
+          <p className="text-6xl font-display font-bold text-blue-600 mt-2">S${totalContributions.toLocaleString()}</p>
+        </div>
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-slate-500 text-lg font-medium">Total Saved (USD)</h3>
+          <p className="text-6xl font-display font-bold text-indigo-600 mt-2">US${(totalContributions * 0.74).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
         </div>
       </div>
 
