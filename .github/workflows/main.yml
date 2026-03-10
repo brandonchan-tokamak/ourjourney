@@ -34,10 +34,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # Removed cache: 'npm' here
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install # Changed to npm install
 
       - name: Build project
         run: npm run build
@@ -48,7 +48,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Vite outputs to 'dist' by default. If your vite.config.ts changes this, update the path here.
+          # Vite outputs to 'dist' by default.
           path: './dist'
 
       - name: Deploy to GitHub Pages
