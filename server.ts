@@ -4,11 +4,29 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database('renovation.db');
+const isProd = process.env.NODE_ENV === 'production';
+const DB_PATH = isProd ? '/tmp/renovation.db' : 'renovation.db';
+const db = new Database(DB_PATH);
+
+const MONGODB_URI = process.env.MONGODB_URI;
+if (MONGODB_URI) {
+  mongoose.connect(MONGODB_URI)
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => console.error('MongoDB connection error:', err));
+}
+
+const contributionSchema = new mongoose.Schema({
+  person: { type: String, required: true },
+  amount: { type: Number, default: 0 },
+  month: { type: String, required: true },
+  notes: String
+}, { timestamps: true });
+const Contribution = mongoose.model('Contribution', contributionSchema);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS items (
@@ -75,7 +93,7 @@ try {
   // Ignore if column already exists
 }
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_DIR = isProd ? '/tmp/uploads' : path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR);
 }
@@ -161,29 +179,66 @@ async function startServer() {
     res.json({ url: `/uploads/${uniqueFilename}` });
   });
 
-  app.get('/api/contributions', (req, res) => {
-    const items = db.prepare('SELECT * FROM contributions ORDER BY month DESC').all();
-    res.json(items);
+  app.get('/api/contributions', async (req, res) => {
+    try {
+      if (MONGODB_URI) {
+        const items = await Contribution.find().sort({ month: -1 });
+        res.json(items.map(item => ({ ...item.toObject(), id: item._id.toString() })));
+      } else {
+        const items = db.prepare('SELECT * FROM contributions ORDER BY month DESC').all();
+        res.json(items);
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch contributions' });
+    }
   });
 
-  app.post('/api/contributions', (req, res) => {
-    const { person, amount, month, notes } = req.body;
-    const stmt = db.prepare('INSERT INTO contributions (person, amount, month, notes) VALUES (?, ?, ?, ?)');
-    const info = stmt.run(person, amount, month, notes);
-    res.json({ id: info.lastInsertRowid });
+  app.post('/api/contributions', async (req, res) => {
+    try {
+      const { person, amount, month, notes } = req.body;
+      if (MONGODB_URI) {
+        const newContribution = new Contribution({ person, amount, month, notes });
+        await newContribution.save();
+        res.json({ id: newContribution._id.toString() });
+      } else {
+        const stmt = db.prepare('INSERT INTO contributions (person, amount, month, notes) VALUES (?, ?, ?, ?)');
+        const info = stmt.run(person, amount, month, notes);
+        res.json({ id: info.lastInsertRowid });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to add contribution' });
+    }
   });
 
-  app.put('/api/contributions/:id', (req, res) => {
-    const { person, amount, month, notes } = req.body;
-    const stmt = db.prepare('UPDATE contributions SET person = ?, amount = ?, month = ?, notes = ? WHERE id = ?');
-    stmt.run(person, amount, month, notes, req.params.id);
-    res.json({ success: true });
+  app.put('/api/contributions/:id', async (req, res) => {
+    try {
+      const { person, amount, month, notes } = req.body;
+      if (MONGODB_URI) {
+        await Contribution.findByIdAndUpdate(req.params.id, { person, amount, month, notes });
+        res.json({ success: true });
+      } else {
+        const stmt = db.prepare('UPDATE contributions SET person = ?, amount = ?, month = ?, notes = ? WHERE id = ?');
+        stmt.run(person, amount, month, notes, req.params.id);
+        res.json({ success: true });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update contribution' });
+    }
   });
 
-  app.delete('/api/contributions/:id', (req, res) => {
-    const stmt = db.prepare('DELETE FROM contributions WHERE id = ?');
-    stmt.run(req.params.id);
-    res.json({ success: true });
+  app.delete('/api/contributions/:id', async (req, res) => {
+    try {
+      if (MONGODB_URI) {
+        await Contribution.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+      } else {
+        const stmt = db.prepare('DELETE FROM contributions WHERE id = ?');
+        stmt.run(req.params.id);
+        res.json({ success: true });
+      }
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to delete contribution' });
+    }
   });
 
   app.get('/api/furniture', (req, res) => {

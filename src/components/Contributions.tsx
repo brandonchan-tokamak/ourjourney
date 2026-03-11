@@ -5,14 +5,25 @@ export default function Contributions() {
   const [items, setItems] = useState<any[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [newItem, setNewItem] = useState({ person: 'Soso', amount: 0, month: new Date().toISOString().slice(0, 7), notes: '' });
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editForm, setEditForm] = useState({ person: '', amount: 0, month: '', notes: '' });
   const [usdRate, setUsdRate] = useState(0.74);
 
   const fetchContributions = () => {
     fetch('/api/contributions')
       .then(res => res.json())
-      .then(data => setItems(data));
+      .then(data => {
+        if (Array.isArray(data)) {
+          setItems(data);
+        } else {
+          console.error('Failed to fetch contributions:', data);
+          setItems([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching contributions:', err);
+        setItems([]);
+      });
   };
 
   const fetchExchangeRate = () => {
@@ -56,7 +67,7 @@ export default function Contributions() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string | number) => {
     await fetch(`/api/contributions/${id}`, { method: 'DELETE' });
     fetchContributions();
   };

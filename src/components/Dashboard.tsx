@@ -8,15 +8,18 @@ export default function Dashboard({ setCurrentView }: { setCurrentView: (v: View
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/items').then(res => res.json()),
-      fetch('/api/contributions').then(res => res.json())
+      fetch('/api/items').then(res => res.json().catch(() => [])),
+      fetch('/api/contributions').then(res => res.json().catch(() => []))
     ]).then(([items, contributions]) => {
+      const validItems = Array.isArray(items) ? items : [];
+      const validContributions = Array.isArray(contributions) ? contributions : [];
+      
       setStats({
-        totalItems: items.length,
-        totalContributions: contributions.reduce((acc: number, curr: any) => acc + curr.amount, 0)
+        totalItems: validItems.length,
+        totalContributions: validContributions.reduce((acc: number, curr: any) => acc + curr.amount, 0)
       });
-      setRecentItems(items.slice(0, 3));
-    });
+      setRecentItems(validItems.slice(0, 3));
+    }).catch(err => console.error('Error fetching dashboard data:', err));
   }, []);
 
   return (
